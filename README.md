@@ -7,6 +7,6 @@
 
 ## Libraries
 - PyPortfolioOpt: For applying Modern Portfolio Theory.
-- Pandas & SQLAlchemy: For database operations.
+- Pandas & MySQL: For database management and operations.
 - yfinance: To fetch stock data.
 - Scikit-learn: For building and evaluating machine learning models.
