@@ -1,6 +1,7 @@
 import pandas as pd
 import mysql.connector
 from src.config import DB_CONFIG  # Import your database configuration
+from sqlalchemy import create_engine
 
 
 def calculate_features(df):
@@ -13,46 +14,21 @@ def calculate_features(df):
     return df
 
 
-class FeatureEngineeringHandler:
-    def __init__(self):
-        self.connection = None
+def fetch_data_and_engineer_features():
+    # Using SQLAlchemy engine for connection
+    engine = create_engine(
+        f"mysql+mysqlconnector://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}/{DB_CONFIG['database']}")
+    query = "SELECT * FROM StockData"
 
-    def sql_connect(self):
-        """Establishes a connection to the database."""
-        try:
-            self.connection = mysql.connector.connect(
-                host=DB_CONFIG['host'],
-                user=DB_CONFIG['user'],
-                password=DB_CONFIG['password'],
-                database=DB_CONFIG['database']
-            )
-            return True
-        except mysql.connector.Error as err:
-            print(f"Database connection error: {err}")
-            return False
-
-    def sql_disconnect(self):
-        """Closes the database connection."""
-        if self.connection:
-            self.connection.close()
-
-    def fetch_data_and_engineer_features(self):
-        if not self.sql_connect():
-            return None
-
-        query = "SELECT * FROM StockData"  # Adjust this query based on your actual table structure
-        try:
-            df = pd.read_sql(query, self.connection)
-            df = calculate_features(df)
-            return df
-        except Exception as e:
-            print(f"Error fetching data: {e}")
-            return None
-        finally:
-            self.sql_disconnect()
+    try:
+        df = pd.read_sql(query, engine)
+        df = calculate_features(df)
+        return df
+    except Exception as e:
+        print(f"Error fetching data: {e}")
+        return None
 
 
 # Usage example
-# handler = FeatureEngineeringHandler()
-# processed_data = handler.fetch_data_and_engineer_features()
-# print(processed_data.head(10))
+processed_data = fetch_data_and_engineer_features()
+print(processed_data.head(10))
