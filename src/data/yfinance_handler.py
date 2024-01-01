@@ -5,7 +5,7 @@ from src.config import DB_CONFIG  # Import your database configuration
 
 
 class YFinanceHandler:
-    def __init__(self, user_portfolio_path, start_date='2021-12-01', end_date='2023-12-01'):
+    def __init__(self, user_portfolio_path, start_date='1950-01-02', end_date='2023-12-01'):
         self.connection = None
         self.user_portfolio_path = user_portfolio_path
         self.start_date = start_date
@@ -58,3 +58,10 @@ class YFinanceHandler:
             self.fetch_and_store_stock_data()
             self.sql_disconnect()
             print("Data fetched and stored successfully")
+        else:
+            print("failed")
+
+
+# Example usage
+handler = YFinanceHandler('sample_data')
+handler.run()
