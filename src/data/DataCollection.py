@@ -7,8 +7,9 @@ class StockDataFetcher:
         self.csv_path = csv_path
         self.portfolio = pd.read_csv(self.csv_path)
         self.stock_data = None
+        self.benchmark_data = None
 
-    def fetch_data(self, start_date="2020-01-01", end_date="2024-01-01"):
+    def fetch_stock_data(self, start_date="2020-01-01", end_date="2024-01-01"):
         """ Fetch historical stock data from Yahoo Finance. """
         tickers = self.portfolio['ticker'].tolist()
         ticker_string = " ".join(tickers)  # Create a string of tickers separated by spaces
@@ -16,7 +17,7 @@ class StockDataFetcher:
         self.stock_data = data
         return data
 
-    def get_data(self):
+    def get_stock_data(self):
         """ Return the fetched stock data. """
         if self.stock_data is not None:
             return self.stock_data

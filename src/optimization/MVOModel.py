@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy.optimize import minimize
+from scipy.stats import norm
 
 
 class PortfolioOptimizer:
@@ -15,15 +16,21 @@ class PortfolioOptimizer:
         """Calculate daily returns of stocks."""
         return self.prices.pct_change().dropna()
 
+    def portfolio_performance(self, weights):
+        """Calculate expected portfolio performance metrics."""
+        portfolio_return = np.dot(weights, self.expected_returns)
+        portfolio_volatility = np.sqrt(np.dot(weights.T, np.dot(self.cov_matrix, weights)))
+        sharpe_ratio = portfolio_return / portfolio_volatility
+        # Add more performance metrics as needed
+        return portfolio_return, portfolio_volatility, sharpe_ratio
+
     def objective_function(self, weights):
         """Objective function to minimize for maximizing return under given risk."""
-        portfolio_return = np.dot(weights, self.expected_returns)
-        return -portfolio_return  # Negate since we want to maximize
+        return -self.portfolio_performance(weights)[0]  # Maximize return
 
     def constraint_volatility(self, weights):
         """Constraint to ensure portfolio volatility does not exceed max_volatility."""
-        portfolio_volatility = np.sqrt(np.dot(weights.T, np.dot(self.cov_matrix, weights)))
-        return self.max_volatility - portfolio_volatility
+        return self.max_volatility - self.portfolio_performance(weights)[1]
 
     def optimize_portfolio(self):
         """Find the optimal weights to maximize return under specified risk preferences."""
@@ -38,11 +45,14 @@ class PortfolioOptimizer:
         return result
 
     def get_optimal_weights(self):
-        """Get the optimal portfolio weights."""
+        """Get the optimal portfolio weights and performance metrics."""
         optimal_result = self.optimize_portfolio()
         if optimal_result.success:
-            # Map weights to ticker names for clear output
-            weight_dict = dict(zip(self.prices.columns, optimal_result.x))
-            return weight_dict
+            weights = optimal_result.x
+            performance = self.portfolio_performance(weights)
+            weight_dict = dict(zip(self.prices.columns, weights))
+            metrics = {'Weights': weight_dict, 'Return': performance[0], 'Volatility': performance[1],
+                       'Sharpe Ratio': performance[2]}
+            return metrics
         else:
             raise Exception("Optimization did not converge")

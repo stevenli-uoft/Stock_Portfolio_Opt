@@ -47,3 +47,4 @@ class StockDataHandler:
     def get_tickers(self):
         """ Extract and return the list of tickers based on the DataFrame's columns. """
         return [item[0] for item in set(self.data.columns) if isinstance(item, tuple)]
+
