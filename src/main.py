@@ -1,27 +1,33 @@
-from src.data.database_setup import DatabaseSetup
-from src.data.yfinance_handler import YFinanceHandler
+from sklearn.model_selection import cross_val_score
 
+from src.data.DataCollection import StockDataFetcher
+from src.data.DataHandling import StockDataHandler
+from src.models.StockPricePredictor import RandomForestModel
+from src.optimization.MVOModel import PortfolioOptimizer
 
-def main():
-    # Initialize DatabaseSetup and establish a connection
-    db_setup = DatabaseSetup()
-    if db_setup.sql_connect():
-        print("Database connection established.")
-
-        # Create necessary tables
-        db_setup.create_stock_data_table()
-
-        # Test disconnection
-        if db_setup.sql_disconnect():
-            print("Database connection closed.")
-
-    # Initialize YFinanceHandler
-    # Assuming you have a user_portfolio.csv file with the portfolio data
-    yfinance_handler = YFinanceHandler('data/sample_data')
-
-    # Fetch and process stock data
-    yfinance_handler.run()
+# def main():
+#     fetcher = StockDataFetcher("tests/sample_data")
+#     fetcher.fetch_data(start_date="2023-01-01", end_date="2024-01-01")
+#     data = fetcher.get_data()
+#
+#     handler = StockDataHandler(data)
+#     handler.clean_data()
+#     handler.add_features()
 
 
 if __name__ == "__main__":
-    main()
+    fetcher = StockDataFetcher("tests/sample_data")
+    fetcher.fetch_data(start_date="2023-01-01", end_date="2024-01-01")
+    data = fetcher.get_data()
+
+    handler = StockDataHandler(data)
+    handler.clean_data()
+    handler.add_features()
+
+    predictor = RandomForestModel(data)
+    predicted_prices_df = predictor.predict_all()
+    # print(predicted_prices_df.head())
+
+    optimizer = PortfolioOptimizer(predicted_prices_df, max_volatility=0.15)
+    optimal_weights = optimizer.get_optimal_weights()
+    print("Optimal Portfolio Weights:", optimal_weights)
