@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
 
-from src.data.DataCollection import StockDataFetcher
-
 
 class StockDataHandler:
     def __init__(self, data):
@@ -10,11 +8,11 @@ class StockDataHandler:
 
     def clean_data(self):
         """ Clean the stock data by handling missing values and filtering anomalies. """
-        # Forward fill any missing values
-        self.data.ffill(inplace=True)
-        # Backward fill any remaining missing values
-        self.data.bfill(inplace=True)
-        return self.data
+        self.data.dropna(inplace=True)
+        # # Forward fill any missing values
+        # self.data.ffill(inplace=True)
+        # # Backward fill any remaining missing values
+        # self.data.bfill(inplace=True)
 
     def add_features(self, window=20, ema_span=20):
         """ Add multiple features: moving average, EMA, volatility, and daily returns in one go,
@@ -27,7 +25,7 @@ class StockDataHandler:
             # Exponential Moving Average
             self.data[ticker, 'EMA_' + str(ema_span)] = close.ewm(span=ema_span, adjust=False).mean()
             # Volatility (standard deviation of daily returns)
-            daily_returns = close.pct_change()
+            daily_returns = close.pct_change(fill_method=None)
             self.data[ticker, 'Volatility_' + str(window)] = daily_returns.rolling(window=window).std()
             # Daily Returns
             self.data[ticker, 'Daily_Returns'] = daily_returns
@@ -47,4 +45,3 @@ class StockDataHandler:
     def get_tickers(self):
         """ Extract and return the list of tickers based on the DataFrame's columns. """
         return [item[0] for item in set(self.data.columns) if isinstance(item, tuple)]
-
