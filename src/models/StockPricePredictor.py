@@ -1,9 +1,10 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split, GridSearchCV, KFold, cross_val_score
+from sklearn.model_selection import TimeSeriesSplit, cross_val_score, train_test_split, GridSearchCV
 from sklearn.metrics import mean_squared_error
 import logging
+import matplotlib.pyplot as plt
 
 # Setup basic configuration for logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -17,9 +18,14 @@ class RandomForestModel:
 
     def prepare_data(self, ticker):
         """Prepare data for modeling. Extract features and target for the given ticker."""
-        features = self.data.loc[:, (ticker, slice(None))]
-        features = features.drop(columns=[(ticker, 'Close'), (ticker, 'Adj Close')])  # Drop target columns
-        target = self.data[(ticker, 'Close')]  # We'll predict the Close price
+        # Extract ticker-specific columns
+        ticker_cols = [col for col in self.data.columns if col.startswith(ticker)]
+        # Include economic data (columns starting with 'FRED_')
+        economic_cols = [col for col in self.data.columns if col.startswith('FRED_')]
+        # Combine both ticker and economic columns for features
+        feature_cols = ticker_cols + economic_cols
+        features = self.data[feature_cols].drop(columns=[f'{ticker}_Close', f'{ticker}_Adj Close', f'{ticker}_Future_Close'])
+        target = self.data[f'{ticker}_Future_Close']  # We'll predict the future Close price
         # Split data into train and test sets
         X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, shuffle=False)
         return X_train, X_test, y_train, y_test
@@ -28,12 +34,14 @@ class RandomForestModel:
         """Optimize Random Forest model using GridSearchCV."""
         parameter_grid = {
             'n_estimators': [100, 200, 300],
-            'max_depth': [10, 20, 30],
-            'min_samples_split': [2, 5, 10],
-            'min_samples_leaf': [1, 2, 4]
+            'max_depth': [5, 10, 20],
+            'min_samples_split': [5, 10, 20, 30],
+            'min_samples_leaf': [5, 10, 15, 20],
+            'max_features': ["sqrt", "log2", None]
         }
         rf = RandomForestRegressor(random_state=42)
-        grid_search = GridSearchCV(estimator=rf, param_grid=parameter_grid, cv=3, n_jobs=-1, verbose=0,
+        tscv = TimeSeriesSplit(n_splits=5)
+        grid_search = GridSearchCV(estimator=rf, param_grid=parameter_grid, cv=tscv, n_jobs=-1, verbose=0,
                                    scoring='neg_mean_squared_error')
         grid_search.fit(X_train, y_train)
         self.best_params = grid_search.best_params_
@@ -42,12 +50,12 @@ class RandomForestModel:
         return self.model
 
     def train_and_evaluate(self, ticker):
-        """Train and evaluate the Random Forest model using cross-validation on the training data."""
+        """Train and evaluate the Random Forest model using TimeSeriesSplit cross-validation."""
         X_train, X_test, y_train, y_test = self.prepare_data(ticker)
         self.optimize_model(X_train, y_train)
-        # Setup cross-validation on the training data
-        kfold = KFold(n_splits=5, shuffle=True, random_state=42)
-        cv_scores = cross_val_score(self.model, X_train, y_train, cv=kfold, scoring='neg_mean_squared_error')
+        # Setup TimeSeriesSplit cross-validation on the training data
+        tscv = TimeSeriesSplit(n_splits=5)
+        cv_scores = cross_val_score(self.model, X_train, y_train, cv=tscv, scoring='neg_mean_squared_error')
         mse_scores = -cv_scores  # Convert scores to positive MSE scores
         avg_mse = np.mean(mse_scores)
         logging.info(f'Average Cross-validated MSE for {ticker}: {avg_mse}')
@@ -55,7 +63,28 @@ class RandomForestModel:
         test_predictions = self.model.predict(X_test)
         test_mse = mean_squared_error(y_test, test_predictions)
         logging.info(f'Test MSE for {ticker}: {test_mse}')
+        # Perform feature importance analysis
+        # self.plot_feature_importances(X_train, ticker)
         return test_predictions, test_mse
+
+    def plot_feature_importances(self, X_train, ticker):
+        """Plot feature importances for the trained model."""
+        importances = self.model.feature_importances_
+        indices = np.argsort(importances)[::-1]
+        features = X_train.columns
+
+        logging.info("Feature ranking:")
+        for i in range(len(importances)):
+            logging.info(f"{i + 1}. feature {features[indices[i]]} ({importances[indices[i]]})")
+
+        # Plot the feature importances
+        plt.figure(figsize=(12, 6))
+        plt.title(f"Feature importances for {ticker}")
+        plt.bar(range(X_train.shape[1]), importances[indices], align="center")
+        plt.xticks(range(X_train.shape[1]), [features[i] for i in indices], rotation=90)
+        plt.xlim([-1, X_train.shape[1]])
+        plt.tight_layout()
+        plt.show()
 
     def predict_future(self):
         """Predict future prices for all tickers using the test set."""
@@ -69,5 +98,5 @@ class RandomForestModel:
                             index=self.data.tail(len(predictions)).index)  # Use the index from the test segment
 
     def get_tickers(self):
-        """Extract tickers from the multi-index columns in the DataFrame."""
-        return set([col[0] for col in self.data.columns])
+        """Extract tickers from the single-level columns in the DataFrame."""
+        return set(col.split('_')[0] for col in self.data.columns if '_' in col and not col.startswith('FRED_'))
