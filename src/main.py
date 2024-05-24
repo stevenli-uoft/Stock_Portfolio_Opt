@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
     handler = StockDataHandler(master_data)
     handler.clean_data()
-    handler.add_features()
+    master_data = handler.add_features()
 
     # Initialize and use the Random Forest Regression Model
     predictor = RandomForestModel(master_data)
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     # print(predicted_prices_df.head())
 
     # Portfolio Optimization with MVOModel
-    optimizer = PortfolioOptimizer(predicted_prices_df, max_volatility=0.15)
+    optimizer = PortfolioOptimizer(predicted_prices_df, max_volatility=0.2)
     optimal_weights = optimizer.get_optimal_weights()
     print("Optimal Portfolio Weights:", optimal_weights['Weights'])
     print("Optimal Portfolio Return:", optimal_weights['Return'])
