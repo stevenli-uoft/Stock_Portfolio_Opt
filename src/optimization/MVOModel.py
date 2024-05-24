@@ -21,7 +21,6 @@ class PortfolioOptimizer:
         portfolio_return = np.dot(weights, self.expected_returns)
         portfolio_volatility = np.sqrt(np.dot(weights.T, np.dot(self.cov_matrix, weights)))
         sharpe_ratio = portfolio_return / portfolio_volatility
-        # Add more performance metrics as needed
         return portfolio_return, portfolio_volatility, sharpe_ratio
 
     def objective_function(self, weights):

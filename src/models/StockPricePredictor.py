@@ -4,7 +4,6 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import TimeSeriesSplit, cross_val_score, train_test_split, GridSearchCV
 from sklearn.metrics import mean_squared_error
 import logging
-import matplotlib.pyplot as plt
 
 # Setup basic configuration for logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -24,7 +23,9 @@ class RandomForestModel:
         economic_cols = [col for col in self.data.columns if col.startswith('FRED_')]
         # Combine both ticker and economic columns for features
         feature_cols = ticker_cols + economic_cols
-        features = self.data[feature_cols].drop(columns=[f'{ticker}_Close', f'{ticker}_Adj Close', f'{ticker}_Future_Close'])
+        features = self.data[feature_cols].drop(columns=[f'{ticker}_Close',
+                                                         f'{ticker}_Adj Close',
+                                                         f'{ticker}_Future_Close'])
         target = self.data[f'{ticker}_Future_Close']  # We'll predict the future Close price
         # Split data into train and test sets
         X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, shuffle=False)
@@ -64,7 +65,7 @@ class RandomForestModel:
         test_mse = mean_squared_error(y_test, test_predictions)
         logging.info(f'Test MSE for {ticker}: {test_mse}')
         # Perform feature importance analysis
-        # self.plot_feature_importances(X_train, ticker)
+        self.plot_feature_importances(X_train, ticker)
         return test_predictions, test_mse
 
     def plot_feature_importances(self, X_train, ticker):
@@ -76,15 +77,6 @@ class RandomForestModel:
         logging.info("Feature ranking:")
         for i in range(len(importances)):
             logging.info(f"{i + 1}. feature {features[indices[i]]} ({importances[indices[i]]})")
-
-        # Plot the feature importances
-        plt.figure(figsize=(12, 6))
-        plt.title(f"Feature importances for {ticker}")
-        plt.bar(range(X_train.shape[1]), importances[indices], align="center")
-        plt.xticks(range(X_train.shape[1]), [features[i] for i in indices], rotation=90)
-        plt.xlim([-1, X_train.shape[1]])
-        plt.tight_layout()
-        plt.show()
 
     def predict_future(self):
         """Predict future prices for all tickers using the test set."""
