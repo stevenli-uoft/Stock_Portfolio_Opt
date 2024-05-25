@@ -28,8 +28,6 @@ class StockDataFetcher:
             'FRED_DGS10': 'DGS10',  # 10-Year Treasury Constant Maturity Rate
             'FRED_SP500': 'SP500',  # S&P 500 Index
             'FRED_OILPRICE': 'DCOILWTICO',  # Crude Oil Prices: West Texas Intermediate (WTI) - Cushing, Oklahoma
-            'FRED_EURUSD': 'DEXUSEU',  # U.S. / Euro Foreign Exchange Rate
-            'FRED_VIXCLS': 'VIXCLS',  # CBOE Volatility Index: VIX
             'FRED_CPIAUCSL': 'CPIAUCSL',  # Consumer Price Index (Monthly)
             'FRED_PCEPILFE': 'PCEPILFE'  # PCE Price Index Excluding Food and Energy (Monthly)
         }
