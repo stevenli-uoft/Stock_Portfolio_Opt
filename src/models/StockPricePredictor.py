@@ -23,10 +23,9 @@ class RandomForestModel:
         economic_cols = [col for col in self.data.columns if col.startswith('FRED_')]
         # Combine both ticker and economic columns for features
         feature_cols = ticker_cols + economic_cols
-        features = self.data[feature_cols].drop(columns=[f'{ticker}_Close',
-                                                         f'{ticker}_Adj Close',
-                                                         f'{ticker}_Future_Close'])
-        target = self.data[f'{ticker}_Future_Close']  # We'll predict the future Close price
+        features = self.data[feature_cols].drop(
+            columns=[f'{ticker}_Close', f'{ticker}_Adj Close', f'{ticker}_Future_Return'])
+        target = self.data[f'{ticker}_Future_Return']  # Predict future returns instead of future prices
         # Split data into train and test sets
         X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, shuffle=False)
         return X_train, X_test, y_train, y_test
@@ -79,14 +78,14 @@ class RandomForestModel:
             logging.info(f"{i + 1}. feature {features[indices[i]]} ({importances[indices[i]]})")
 
     def predict_future(self):
-        """Predict future prices for all tickers using the test set."""
-        predicted_prices = {}
+        """Predict future returns for all tickers using the test set."""
+        predicted_returns = {}
         tickers = self.get_tickers()
         for ticker in tickers:
-            logging.info(f'Predicting future prices for ticker: {ticker}')
+            logging.info(f'Predicting future returns for ticker: {ticker}')
             predictions, _ = self.train_and_evaluate(ticker)
-            predicted_prices[ticker] = predictions
-        return pd.DataFrame(predicted_prices,
+            predicted_returns[ticker] = predictions
+        return pd.DataFrame(predicted_returns,
                             index=self.data.tail(len(predictions)).index)  # Use the index from the test segment
 
     def get_tickers(self):

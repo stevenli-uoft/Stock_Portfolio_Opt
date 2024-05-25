@@ -25,12 +25,12 @@ class StockDataHandler:
         for ticker in self.get_tickers():
             # Prepare column names
             close_col = f"{ticker}_Close"
-            future_close_col = f"{ticker}_Future_Close"
+            future_return_col = f"{ticker}_Future_Return"
             if close_col in self.data.columns:
                 close = self.data[close_col]
 
                 # Shift the close prices to create the future target
-                new_features[future_close_col] = close.shift(-21)  # Shift by 21 trading days (approximately one month)
+                new_features[future_return_col] = close.pct_change(periods=21).shift(-21)  # Shift by 21 trading days (approximately one month)
 
                 # Moving Averages
                 new_features[f'{ticker}_MA_{short_window}'] = close.rolling(window=short_window).mean()
@@ -44,18 +44,6 @@ class StockDataHandler:
                 # Daily Returns
                 new_features[f'{ticker}_Daily_Returns'] = daily_returns
 
-                # Lagged Returns
-                new_features[f'{ticker}_5d_Lagged_Return'] = daily_returns.shift(5)
-                new_features[f'{ticker}_10d_Lagged_Return'] = daily_returns.shift(10)
-                new_features[f'{ticker}_21d_Lagged_Return'] = daily_returns.shift(21)
-
-                # Relative Strength Index (RSI)
-                delta = close.diff()
-                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-                rs = gain / loss
-                new_features[f'{ticker}_RSI'] = 100 - (100 / (1 + rs))
-
                 # Bollinger Bands
                 new_features[f'{ticker}_Bollinger_Upper'] = (
                         new_features[f'{ticker}_MA_{short_window}'] +
@@ -63,14 +51,6 @@ class StockDataHandler:
                 new_features[f'{ticker}_Bollinger_Lower'] = (
                         new_features[f'{ticker}_MA_{short_window}'] -
                         (2 * new_features[f'{ticker}_Volatility_{short_window}']))
-
-                # MACD
-                ema_12 = close.ewm(span=12, adjust=False).mean()
-                ema_26 = close.ewm(span=26, adjust=False).mean()
-                macd = ema_12 - ema_26
-                signal = macd.ewm(span=9, adjust=False).mean()
-                new_features[f"{ticker}_MACD"] = macd
-                new_features[f"{ticker}_MACD_Signal"] = signal
 
         # Concatenate the new features DataFrame with the original data
         self.data = pd.concat([self.data, new_features], axis=1)
@@ -87,3 +67,4 @@ class StockDataHandler:
     def get_tickers(self):
         """Extract and return the list of tickers based on the DataFrame's columns."""
         return set(col.split('_')[0] for col in self.data.columns if '_' in col)
+

@@ -4,7 +4,6 @@ from src.models.StockPricePredictor import RandomForestModel
 from src.optimization.MVOModel import PortfolioOptimizer
 
 import pandas as pd
-from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 if __name__ == "__main__":
     file_path = "tests/sample_data"
@@ -27,11 +26,10 @@ if __name__ == "__main__":
 
     # Initialize and use the Random Forest Regression Model
     predictor = RandomForestModel(master_data)
-    predicted_prices_df = predictor.predict_future()
-    # print(predicted_prices_df.head())
+    predicted_returns_df = predictor.predict_future()
 
     # Portfolio Optimization with MVOModel
-    optimizer = PortfolioOptimizer(predicted_prices_df, max_volatility=0.2)
+    optimizer = PortfolioOptimizer(predicted_returns_df, max_volatility=0.15)
     optimal_weights = optimizer.get_optimal_weights()
     print("Optimal Portfolio Weights:", optimal_weights['Weights'])
     print("Optimal Portfolio Return:", optimal_weights['Return'])
