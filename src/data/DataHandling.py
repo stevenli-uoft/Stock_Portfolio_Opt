@@ -17,9 +17,8 @@ class StockDataHandler:
         # Drop rows with any remaining missing values in other columns
         self.data.dropna(inplace=True)
 
-    def add_features(self, short_window=20, long_window=50, ema_span=20):
-        """Add multiple features: short and long term moving averages, EMA, volatility, daily returns, RSI, MACD,
-           Bollinger Bands, rolling skewness, and rolling kurtosis in one go, and handle NA values created by these operations."""
+    def add_features(self, short_window=20, long_window=50, ema_span=20, shift=True):
+        """Add multiple features and handle NA values created by these operations."""
         new_features = pd.DataFrame(index=self.data.index)
 
         for ticker in self.get_tickers():
@@ -29,8 +28,12 @@ class StockDataHandler:
             if close_col in self.data.columns:
                 close = self.data[close_col]
 
-                # Shift the close prices to create the future target
-                new_features[future_return_col] = close.pct_change(periods=21).shift(-21)  # Shift by 21 trading days (approximately one month)
+                if shift:
+                    # Shift the close prices to create the future target
+                    new_features[future_return_col] = close.pct_change(periods=21).shift(-21)
+                # else:
+                #     # Although redundant for application prediction use, required to match columns for RFR model
+                #     new_features[future_return_col] = close.pct_change(periods=21)
 
                 # Moving Averages
                 new_features[f'{ticker}_MA_{short_window}'] = close.rolling(window=short_window).mean()
@@ -45,12 +48,10 @@ class StockDataHandler:
                 new_features[f'{ticker}_Daily_Returns'] = daily_returns
 
                 # Bollinger Bands
-                new_features[f'{ticker}_Bollinger_Upper'] = (
-                        new_features[f'{ticker}_MA_{short_window}'] +
-                        (2 * new_features[f'{ticker}_Volatility_{short_window}']))
-                new_features[f'{ticker}_Bollinger_Lower'] = (
-                        new_features[f'{ticker}_MA_{short_window}'] -
-                        (2 * new_features[f'{ticker}_Volatility_{short_window}']))
+                new_features[f'{ticker}_Bollinger_Upper'] = new_features[f'{ticker}_MA_{short_window}'] + (
+                            2 * new_features[f'{ticker}_Volatility_{short_window}'])
+                new_features[f'{ticker}_Bollinger_Lower'] = new_features[f'{ticker}_MA_{short_window}'] - (
+                            2 * new_features[f'{ticker}_Volatility_{short_window}'])
 
         # Concatenate the new features DataFrame with the original data
         self.data = pd.concat([self.data, new_features], axis=1)
@@ -67,4 +68,3 @@ class StockDataHandler:
     def get_tickers(self):
         """Extract and return the list of tickers based on the DataFrame's columns."""
         return set(col.split('_')[0] for col in self.data.columns if '_' in col)
-
