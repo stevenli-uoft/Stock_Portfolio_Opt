@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
 from scipy.optimize import minimize
-from scipy.stats import norm
-
 
 class PortfolioOptimizer:
     def __init__(self, predicted_prices_df, max_volatility=None):

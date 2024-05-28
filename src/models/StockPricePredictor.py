@@ -76,7 +76,7 @@ class RandomForestModel:
         test_mse = mean_squared_error(y_test, test_predictions)
         logging.info(f'Test MSE for {ticker}: {test_mse}')
         # Perform feature importance analysis
-        self.plot_feature_importances(model, X_train, ticker)
+        # self.plot_feature_importances(model, X_train, ticker)
         return test_predictions, test_mse
 
     def plot_feature_importances(self, model, X_train, ticker):
@@ -109,10 +109,24 @@ class RandomForestModel:
 
             # Predict the future prices
             predictions = model.predict(features)
-            predicted_prices[ticker] = predictions
+
+            # Create a Series for the predictions
+            predicted_series = pd.Series(predictions, index=application_data.index)
+
+            # Shift the index to move dates forward by 21 days
+            shifted_index = application_data.index + pd.Timedelta(days=21)
+            predicted_series.index = shifted_index
+
+            # Store the shifted series in the dictionary
+            predicted_prices[ticker] = predicted_series
 
         # Create a DataFrame with predicted prices
-        return pd.DataFrame(predicted_prices, index=application_data.index)
+        predicted_df = pd.DataFrame(predicted_prices)
+
+        # Drop any rows with NaN values resulting from the shift
+        predicted_df.dropna(inplace=True)
+
+        return predicted_df
 
     def get_tickers(self):
         """Extract tickers from the single-level columns in the DataFrame."""

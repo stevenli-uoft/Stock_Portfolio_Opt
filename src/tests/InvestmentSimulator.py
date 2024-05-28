@@ -9,32 +9,31 @@ class PortfolioEvaluator:
     def fetch_data(self, start_date, end_date):
         tickers = list(self.allocations.keys())
         data = yf.download(tickers, start=start_date, end=end_date)['Adj Close']
+        print(data.head(1))
+        print(data.tail(1))
         return data
-
-    def calculate_returns(self, data):
-        returns = data.pct_change().dropna()
-        return returns
 
     def evaluate_performance(self, start_date, end_date):
         data = self.fetch_data(start_date, end_date)
-        returns = self.calculate_returns(data)
+        start_prices = data.iloc[0]
+        end_prices = data.iloc[-1]
+
+        # Calculate individual stock returns
+        individual_returns = (end_prices - start_prices) / start_prices
 
         # Calculate portfolio return
-        portfolio_returns = returns.dot(pd.Series(self.allocations))
+        portfolio_return = sum(individual_returns[ticker] * self.allocations[ticker] for ticker in self.allocations)
 
-        # Calculate cumulative return
-        cumulative_return = (1 + portfolio_returns).prod() - 1
-
-        return cumulative_return
+        return portfolio_return
 
 
 if __name__ == "__main__":
-    allocations = {'META': 0.03850368597352959, 'TSLA': 5.92668953193834e-17, 'AMZN': 0.02164008391651878,
-                   'GOOGL': 0.3145029720748397, 'MSFT': 0.06532087274653729, 'NFLX': 0.11741451186072589,
-                   'VFV.TO': 0.15854420758054213, 'AAPL': 3.906515952736833e-18, 'NVDA': 0.28407366584730653}
+    allocations = {'MSFT': 0.06163007969463202, 'GOOGL': 0.14202126437609114, 'VFV.TO': 8.900025051520374e-16,
+                   'AMZN': 0.01523047596549252, 'NFLX': 2.7405751008412887e-18, 'TSLA': 0.5153290502440645,
+                   'META': 0.07634978341321792, 'NVDA': 0.030773078323741564, 'AAPL': 0.15866626798275946}
 
     evaluator = PortfolioEvaluator(allocations)
-    start_date = '2024-03-31'
-    end_date = '2024-04-30'
+    start_date = '2024-01-16'
+    end_date = '2024-03-28'
     actual_return = evaluator.evaluate_performance(start_date, end_date)
     print(f"Actual Portfolio Return from {start_date} to {end_date}: {actual_return * 100:.2f}%")
