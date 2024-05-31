@@ -28,12 +28,12 @@ class PortfolioEvaluator:
 
 
 if __name__ == "__main__":
-    allocations = {'MSFT': 0.06163007969463202, 'GOOGL': 0.14202126437609114, 'VFV.TO': 8.900025051520374e-16,
-                   'AMZN': 0.01523047596549252, 'NFLX': 2.7405751008412887e-18, 'TSLA': 0.5153290502440645,
-                   'META': 0.07634978341321792, 'NVDA': 0.030773078323741564, 'AAPL': 0.15866626798275946}
+    allocations = {'MSFT': 0.0, 'AAPL': 9.322792424702106e-16, 'VFV.TO': 4.95473227694169e-16,
+                   'GOOGL': 0.21890883215046894, 'NFLX': 0.42167636626372723, 'TSLA': 0.28382925313290774,
+                   'META': 4.0075965359051273e-16, 'NVDA': 0.0755855484528945, 'AMZN': 1.5655231422342987e-16}
 
     evaluator = PortfolioEvaluator(allocations)
-    start_date = '2024-01-16'
-    end_date = '2024-03-28'
+    start_date = '2023-06-01'
+    end_date = '2024-05-25'
     actual_return = evaluator.evaluate_performance(start_date, end_date)
     print(f"Actual Portfolio Return from {start_date} to {end_date}: {actual_return * 100:.2f}%")
