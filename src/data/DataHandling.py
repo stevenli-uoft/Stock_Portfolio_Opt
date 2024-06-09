@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 
-class StockDataHandler:
+class DataHandler:
     def __init__(self, data):
         self.data = data
         self.scaler = StandardScaler()
@@ -30,10 +30,7 @@ class StockDataHandler:
 
                 if shift:
                     # Shift the close prices to create the future target
-                    new_features[future_return_col] = close.pct_change(periods=21).shift(-21)
-                # else:
-                #     # Although redundant for application prediction use, required to match columns for RFR model
-                #     new_features[future_return_col] = close.pct_change(periods=21)
+                    new_features[future_return_col] = close.pct_change(periods=126).shift(-126)
 
                 # Moving Averages
                 new_features[f'{ticker}_MA_{short_window}'] = close.rolling(window=short_window).mean()

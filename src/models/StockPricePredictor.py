@@ -15,19 +15,19 @@ class RandomForestModel:
         self.data = data
         self.models = {}
 
-    def prepare_data(self, ticker, shift_target=True):
+    def prepare_data(self, ticker):
         """Prepare data for modeling. Extract features and target for the given ticker."""
         # Extract ticker-specific columns
         ticker_cols = [col for col in self.data.columns if col.startswith(ticker)]
+
         # Include economic data (columns starting with 'FRED_')
         economic_cols = [col for col in self.data.columns if col.startswith('FRED_')]
+
         # Combine both ticker and economic columns for features
         feature_cols = ticker_cols + economic_cols
 
-        if shift_target:
-            target = self.data[f'{ticker}_Future_Return']  # Predicting future Close price
-        else:
-            target = self.data[f'{ticker}_Close']  # Directly using Close price for current prediction
+        # Target for predicting future returns
+        target = self.data[f'{ticker}_Future_Return']
 
         # Drop target features to prevent data leakage
         features = self.data[feature_cols].drop(columns=[f'{ticker}_Future_Return'])
@@ -36,9 +36,9 @@ class RandomForestModel:
         features = features[sorted(features.columns)]
 
         # Split data into train and test sets
-        X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, shuffle=False)
+        x_train, x_test, y_train, y_test = train_test_split(features, target, test_size=0.2, shuffle=False)
 
-        return X_train, X_test, y_train, y_test
+        return x_train, x_test, y_train, y_test
 
     def optimize_model(self, X_train, y_train):
         """Optimize Random Forest model using GridSearchCV."""
@@ -61,22 +61,25 @@ class RandomForestModel:
 
     def train_and_evaluate(self, ticker):
         """Train and evaluate the Random Forest model using TimeSeriesSplit cross-validation."""
-        X_train, X_test, y_train, y_test = self.prepare_data(ticker)
-        model, best_params = self.optimize_model(X_train, y_train)
+        x_train, x_test, y_train, y_test = self.prepare_data(ticker)
+        model, best_params = self.optimize_model(x_train, y_train)
         self.models[ticker] = model  # Save the model for the ticker
 
         # Setup TimeSeriesSplit cross-validation on the training data
         tscv = TimeSeriesSplit(n_splits=5)
-        cv_scores = cross_val_score(model, X_train, y_train, cv=tscv, scoring='neg_mean_squared_error')
+        cv_scores = cross_val_score(model, x_train, y_train, cv=tscv, scoring='neg_mean_squared_error')
         mse_scores = -cv_scores  # Convert scores to positive MSE scores
         avg_mse = np.mean(mse_scores)
         logging.info(f'Average Cross-validated MSE for {ticker}: {avg_mse}')
+
         # Final evaluation on the test data
-        test_predictions = model.predict(X_test)
+        test_predictions = model.predict(x_test)
         test_mse = mean_squared_error(y_test, test_predictions)
         logging.info(f'Test MSE for {ticker}: {test_mse}')
+
         # Perform feature importance analysis
-        # self.plot_feature_importances(model, X_train, ticker)
+        # self.plot_feature_importances(model, x_train, ticker)
+
         return test_predictions, test_mse
 
     def plot_feature_importances(self, model, X_train, ticker):
@@ -89,44 +92,30 @@ class RandomForestModel:
         for i in range(len(importances)):
             logging.info(f"{i + 1}. feature {features[indices[i]]} ({importances[indices[i]]})")
 
-    def predict_future(self, application_data):
-        """Predict future prices for all tickers using the application data."""
-        predicted_prices = {}
+    def predict_future(self, prod_data):
+        """Predict future returns for all tickers using the application data."""
+        predicted_returns = {}
         tickers = self.get_tickers()
         for ticker in tickers:
-            logging.info(f'Predicting future prices for ticker: {ticker}')
+            logging.info(f'Predicting future returns for ticker: {ticker}')
 
             # Extract features from application data
-            ticker_cols = [col for col in application_data.columns if col.startswith(ticker)]
-            economic_cols = [col for col in application_data.columns if col.startswith('FRED_')]
+            ticker_cols = [col for col in prod_data.columns if col.startswith(ticker)]
+            economic_cols = [col for col in prod_data.columns if col.startswith('FRED_')]
             feature_cols = ticker_cols + economic_cols
 
             # Sort the features alphabetically
-            features = application_data[feature_cols].sort_index(axis=1)
+            features = prod_data[feature_cols].sort_index(axis=1)
 
             # Load the trained model
             model = self.models[ticker]
 
-            # Predict the future prices
+            # Predict the future returns
             predictions = model.predict(features)
+            predicted_returns[ticker] = predictions
 
-            # Create a Series for the predictions
-            predicted_series = pd.Series(predictions, index=application_data.index)
-
-            # Shift the index to move dates forward by 21 days
-            shifted_index = application_data.index + pd.Timedelta(days=21)
-            predicted_series.index = shifted_index
-
-            # Store the shifted series in the dictionary
-            predicted_prices[ticker] = predicted_series
-
-        # Create a DataFrame with predicted prices
-        predicted_df = pd.DataFrame(predicted_prices)
-
-        # Drop any rows with NaN values resulting from the shift
-        predicted_df.dropna(inplace=True)
-
-        return predicted_df
+        # Create a DataFrame with predicted returns
+        return pd.DataFrame(predicted_returns, index=prod_data.index)
 
     def get_tickers(self):
         """Extract tickers from the single-level columns in the DataFrame."""
