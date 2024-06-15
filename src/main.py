@@ -46,13 +46,40 @@ if __name__ == "__main__":
     prod_data_handler.clean_data()
     prod_master_data = prod_data_handler.add_features(shift=False)
 
-    # Predict future prices using the trained models
-    predicted_prices_df = predictor.predict_future(prod_master_data)
+    # Predict future returns using the trained models
+    predicted_returns_df = predictor.predict_future(prod_master_data)
 
     # Portfolio Optimization with MVOModel
-    optimizer = PortfolioOptimizer(predicted_prices_df, max_volatility=0.1)
-    optimal_weights = optimizer.get_optimal_weights()
-    print("Optimal Portfolio Weights:", optimal_weights['Weights'])
-    print("Optimal Portfolio Return:", optimal_weights['Return'])
-    print("Optimal Portfolio Volatility:", optimal_weights['Volatility'])
-    print("Optimal Portfolio Sharpe Ratio:", optimal_weights['Sharpe Ratio'])
+    try:
+        optimizer = PortfolioOptimizer(predicted_returns_df, max_volatility=0.2)
+        optimal_weights = optimizer.get_optimal_weights()
+        print("Optimal Portfolio Weights:", optimal_weights['Weights'])
+        print("Optimal Portfolio Return:", optimal_weights['Return'])
+        print("Optimal Portfolio Volatility:", optimal_weights['Volatility'])
+        print("Optimal Portfolio Sharpe Ratio:", optimal_weights['Sharpe Ratio'])
+    except Exception as e:
+        print(f"An error occurred during portfolio optimization: {e}")
+
+    # Baseline MVO Model using historical returns
+    fetcher.fetch_stock_data(start_date=prod_start_date, end_date=prod_end_date)
+    historical_stock_data = fetcher.get_stock_data()
+
+    # Flatten the MultiIndex columns in historical_stock_data
+    historical_stock_data.columns = ['_'.join(col) for col in historical_stock_data.columns]
+
+    historical_prices_df = historical_stock_data[[col for col in historical_stock_data.columns
+                                                  if col.endswith('_Close')]]
+
+    # Calculate historical returns
+    historical_returns_df = historical_prices_df.pct_change().dropna()
+
+    # Portfolio Optimization with the baseline MVO model
+    try:
+        baseline_optimizer = PortfolioOptimizer(historical_returns_df, max_volatility=0.2)
+        baseline_optimal_weights = baseline_optimizer.get_optimal_weights()
+        print("Baseline Optimal Portfolio Weights:", baseline_optimal_weights['Weights'])
+        print("Baseline Optimal Portfolio Return:", baseline_optimal_weights['Return'])
+        print("Baseline Optimal Portfolio Volatility:", baseline_optimal_weights['Volatility'])
+        print("Baseline Optimal Portfolio Sharpe Ratio:", baseline_optimal_weights['Sharpe Ratio'])
+    except Exception as e:
+        print(f"An error occurred during baseline portfolio optimization: {e}")

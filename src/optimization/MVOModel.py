@@ -48,7 +48,9 @@ class PortfolioOptimizer:
             weights = optimal_result.x
             performance = self.portfolio_performance(weights)
             weight_dict = dict(zip(self.prices.columns, weights))
-            metrics = {'Weights': weight_dict, 'Return': performance[0], 'Volatility': performance[1],
+            metrics = {'Weights': weight_dict,
+                       'Return': performance[0],
+                       'Volatility': performance[1],
                        'Sharpe Ratio': performance[2]}
             return metrics
         else:
