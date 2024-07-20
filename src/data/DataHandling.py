@@ -23,7 +23,7 @@ class DataHandler:
 
         for ticker in self.get_tickers():
             # Prepare column names
-            close_col = f"{ticker}_Close"
+            close_col = f"{ticker}_Adj Close"
             future_return_col = f"{ticker}_Future_Return"
             if close_col in self.data.columns:
                 close = self.data[close_col]

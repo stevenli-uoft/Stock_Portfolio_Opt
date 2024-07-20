@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import TimeSeriesSplit, cross_val_score, train_test_split, GridSearchCV
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import logging
 import joblib
 
@@ -60,27 +60,36 @@ class RandomForestModel:
         return model, best_params
 
     def train_and_evaluate(self, ticker):
-        """Train and evaluate the Random Forest model using TimeSeriesSplit cross-validation."""
         x_train, x_test, y_train, y_test = self.prepare_data(ticker)
         model, best_params = self.optimize_model(x_train, y_train)
-        self.models[ticker] = model  # Save the model for the ticker
+        self.models[ticker] = model
 
-        # Setup TimeSeriesSplit cross-validation on the training data
+        # Cross-validation
         tscv = TimeSeriesSplit(n_splits=5)
-        cv_scores = cross_val_score(model, x_train, y_train, cv=tscv, scoring='neg_mean_squared_error')
-        mse_scores = -cv_scores  # Convert scores to positive MSE scores
-        avg_mse = np.mean(mse_scores)
-        logging.info(f'Average Cross-validated MSE for {ticker}: {avg_mse}')
+        cv_mse_scores = -cross_val_score(model, x_train, y_train, cv=tscv, scoring='neg_mean_squared_error')
+        cv_mae_scores = -cross_val_score(model, x_train, y_train, cv=tscv, scoring='neg_mean_absolute_error')
+        cv_r2_scores = cross_val_score(model, x_train, y_train, cv=tscv, scoring='r2')
 
-        # Final evaluation on the test data
+        logging.info(f'Cross-validation results for {ticker}:')
+        logging.info(f'  Average MSE: {np.mean(cv_mse_scores):.4f} (+/- {np.std(cv_mse_scores) * 2:.4f})')
+        logging.info(f'  Average MAE: {np.mean(cv_mae_scores):.4f} (+/- {np.std(cv_mae_scores) * 2:.4f})')
+        logging.info(f'  Average R2: {np.mean(cv_r2_scores):.4f} (+/- {np.std(cv_r2_scores) * 2:.4f})')
+
+        # Test set evaluation
         test_predictions = model.predict(x_test)
         test_mse = mean_squared_error(y_test, test_predictions)
-        logging.info(f'Test MSE for {ticker}: {test_mse}')
+        test_mae = mean_absolute_error(y_test, test_predictions)
+        test_r2 = r2_score(y_test, test_predictions)
+
+        logging.info(f'Test set results for {ticker}:')
+        logging.info(f'  MSE: {test_mse:.4f}')
+        logging.info(f'  MAE: {test_mae:.4f}')
+        logging.info(f'  R2: {test_r2:.4f}')
 
         # Perform feature importance analysis
         # self.plot_feature_importances(model, x_train, ticker)
 
-        return test_predictions, test_mse
+        return test_predictions, test_mse, test_mae, test_r2
 
     def plot_feature_importances(self, model, X_train, ticker):
         """Plot feature importances for the trained model."""
