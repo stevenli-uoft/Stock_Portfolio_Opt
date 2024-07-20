@@ -1,26 +1,25 @@
 from src.data.DataCollection import StockDataFetcher
-from src.data.DataHandling import StockDataHandler
+from src.data.DataHandling import DataHandler
 from src.models.StockPricePredictor import RandomForestModel
 from src.optimization.MVOModel import PortfolioOptimizer
-import joblib
 import pandas as pd
+
+from src.tests.InvestmentSimulator import PortfolioEvaluator
 
 if __name__ == "__main__":
     file_path = "tests/sample_data"
-    fetcher = StockDataFetcher(file_path, "c9390a380f1c33649e759b91b864853d")
 
     # Collect and handle stock data
-    fetcher.fetch_stock_data(start_date="2000-01-01", end_date="2022-06-01")
-    stock_data = fetcher.get_stock_data()
-    fetcher.fetch_economic_data(start_date="2000-01-01", end_date="2022-06-01")
-    econ_data = fetcher.get_economic_data()
+    fetcher = StockDataFetcher(file_path, "c9390a380f1c33649e759b91b864853d")
+    stock_data = fetcher.fetch_stock_data(start_date="2012-01-01", end_date="2022-12-31")
+    econ_data = fetcher.fetch_economic_data(start_date="2012-01-01", end_date="2022-12-31")
 
     # Flatten the MultiIndex columns in stock_data
     stock_data.columns = ['_'.join(col) for col in stock_data.columns]
 
     master_data = pd.merge(stock_data, econ_data, left_index=True, right_index=True, how='inner')
 
-    handler = StockDataHandler(master_data)
+    handler = DataHandler(master_data)
     handler.clean_data()
     master_data = handler.add_features(shift=True)
 
@@ -30,52 +29,85 @@ if __name__ == "__main__":
     for ticker in tickers:
         predictor.train_and_evaluate(ticker)
 
-    # Save the models for future use
-    for ticker in tickers:
-        joblib.dump(predictor.models[ticker], f"models/{ticker}_model.pkl")
+    # Collect production data
+    prod_start_date = "2023-01-01"
+    prod_end_date = "2023-05-31"
+    prod_stock_data = fetcher.fetch_stock_data(start_date=prod_start_date, end_date=prod_end_date)
+    prod_econ_data = fetcher.fetch_economic_data(start_date=prod_start_date, end_date=prod_end_date)
 
-    # Collect application data
-    application_start_date = "2022-06-01"
-    application_end_date = "2023-05-31"
-    fetcher.fetch_stock_data(start_date=application_start_date, end_date=application_end_date)
-    application_stock_data = fetcher.get_stock_data()
-    fetcher.fetch_economic_data(start_date=application_start_date, end_date=application_end_date)
-    application_econ_data = fetcher.get_economic_data()
+    # Flatten the MultiIndex columns in production_stock_data
+    prod_stock_data.columns = ['_'.join(col) for col in prod_stock_data.columns]
 
-    # Flatten the MultiIndex columns in application_stock_data
-    application_stock_data.columns = ['_'.join(col) for col in application_stock_data.columns]
+    prod_master_data = pd.merge(prod_stock_data, prod_econ_data, left_index=True, right_index=True, how='inner')
 
-    application_data = pd.merge(application_stock_data, application_econ_data,
-                                left_index=True, right_index=True, how='inner')
+    prod_data_handler = DataHandler(prod_master_data)
+    prod_data_handler.clean_data()
+    prod_master_data = prod_data_handler.add_features(shift=False)
 
-    application_handler = StockDataHandler(application_data)
-    application_handler.clean_data()
-    application_data = application_handler.add_features(shift=False)
+    # Predict future returns using the trained models
+    predicted_returns_df = predictor.predict_future(prod_master_data)
 
-    # Load the models for each ticker and predict future prices
-    for ticker in tickers:
-        predictor.models[ticker] = joblib.load(f"models/{ticker}_model.pkl")
+    # Portfolio Optimization using predicted returns from Random Forest Model
+    try:
+        optimizer = PortfolioOptimizer(predicted_returns_df, max_volatility=0.5)
+        optimal_weights = optimizer.get_optimal_weights()
+        print("Predicted Optimal Portfolio Weights:")
+        for ticker, weight in optimal_weights['Weights'].items():
+            print(f"  {ticker}: {weight:.4f}")
+        print("Optimal Portfolio Return:", optimal_weights['Return'])
+        print("Optimal Portfolio Volatility:", optimal_weights['Volatility'])
+        print("Optimal Portfolio Sharpe Ratio:", optimal_weights['Sharpe Ratio'])
+    except Exception as e:
+        print(f"An error occurred during portfolio optimization: {e}")
 
-    predicted_prices_df = predictor.predict_future(application_data)
+    # Baseline MVO Model using historical returns
+    historical_stock_data = fetcher.fetch_stock_data(start_date=prod_start_date, end_date=prod_end_date)
 
-    # Portfolio Optimization with MVOModel
-    optimizer = PortfolioOptimizer(predicted_prices_df, max_volatility=1)
-    optimal_weights = optimizer.get_optimal_weights()
-    print("Optimal Portfolio Weights:", optimal_weights['Weights'])
-    print("Optimal Portfolio Return:", optimal_weights['Return'])
-    print("Optimal Portfolio Volatility:", optimal_weights['Volatility'])
-    print("Optimal Portfolio Sharpe Ratio:", optimal_weights['Sharpe Ratio'])
+    # Flatten the MultiIndex columns in historical_stock_data
+    historical_stock_data.columns = ['_'.join(col) for col in historical_stock_data.columns]
+    historical_prices_df = historical_stock_data[[col for col in historical_stock_data.columns
+                                                  if col.endswith('_Adj Close')]]
+    historical_prices_df.columns = [col.split('_')[0] for col in historical_prices_df.columns]
 
-    # Baseline MVO Model using historical prices
-    historical_prices_df = application_data[[col for col in application_data.columns
-                                             if col.endswith('_Close')]].copy()
-    historical_prices_df.columns = [col.replace('_Close', '') for col in
-                                    historical_prices_df.columns]  # Simplify column names
+    # Calculate historical returns
+    historical_returns_df = historical_prices_df.pct_change().dropna()
 
-    # Portfolio Optimization with the baseline MVO model
-    baseline_optimizer = PortfolioOptimizer(historical_prices_df, max_volatility=1)
-    baseline_optimal_weights = baseline_optimizer.get_optimal_weights()
-    print("Baseline Optimal Portfolio Weights:", baseline_optimal_weights['Weights'])
-    print("Baseline Optimal Portfolio Return:", baseline_optimal_weights['Return'])
-    print("Baseline Optimal Portfolio Volatility:", baseline_optimal_weights['Volatility'])
-    print("Baseline Optimal Portfolio Sharpe Ratio:", baseline_optimal_weights['Sharpe Ratio'])
+    # Portfolio Optimization using averaged historical returns
+    try:
+        baseline_optimizer = PortfolioOptimizer(historical_returns_df, max_volatility=0.5)
+        baseline_optimal_weights = baseline_optimizer.get_optimal_weights()
+        print("Baseline Optimal Portfolio Weights:")
+        for ticker, weight in baseline_optimal_weights['Weights'].items():
+            print(f"  {ticker}: {weight:.4f}")
+        print("Baseline Optimal Portfolio Return:", baseline_optimal_weights['Return'])
+        print("Baseline Optimal Portfolio Volatility:", baseline_optimal_weights['Volatility'])
+        print("Baseline Optimal Portfolio Sharpe Ratio:", baseline_optimal_weights['Sharpe Ratio'])
+    except Exception as e:
+        print(f"An error occurred during baseline portfolio optimization: {e}")
+
+    try:
+        # Set evaluation period (adjust as needed)
+        eval_start_date = "2023-06-01"
+        eval_end_date = "2023-12-31"
+
+        # Evaluate ML-enhanced portfolio
+        ml_evaluator = PortfolioEvaluator(optimal_weights['Weights'])
+        ml_return = ml_evaluator.evaluate_portfolio(eval_start_date, eval_end_date)
+
+        # Evaluate baseline portfolio
+        baseline_evaluator = PortfolioEvaluator(baseline_optimal_weights['Weights'])
+        baseline_return = baseline_evaluator.evaluate_portfolio(eval_start_date, eval_end_date)
+
+        # Compare results
+        if ml_return is not None and baseline_return is not None:
+            print("\nPortfolio Performance Comparison:")
+            print(f"Evaluation Period: {eval_start_date} to {eval_end_date}")
+            print(f"ML-enhanced Portfolio Actual Return: {ml_return:.4f} ({ml_return * 100:.2f}%)")
+            print(f"Baseline Portfolio Actual Return: {baseline_return:.4f} ({baseline_return * 100:.2f}%)")
+            print(f"Difference: {(ml_return - baseline_return) * 100:.2f} percentage points")
+
+            # Calculate relative performance
+            relative_performance = ((1 + ml_return) / (1 + baseline_return) - 1) * 100
+            print(f"Relative Performance: ML-enhanced outperformed baseline by {relative_performance:.2f}%")
+    except ValueError:
+        print("Optimal weights has not been found yet.")

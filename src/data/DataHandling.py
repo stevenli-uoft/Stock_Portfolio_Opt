@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 
-class StockDataHandler:
+class DataHandler:
     def __init__(self, data):
         self.data = data
         self.scaler = StandardScaler()
@@ -23,17 +23,14 @@ class StockDataHandler:
 
         for ticker in self.get_tickers():
             # Prepare column names
-            close_col = f"{ticker}_Close"
+            close_col = f"{ticker}_Adj Close"
             future_return_col = f"{ticker}_Future_Return"
             if close_col in self.data.columns:
                 close = self.data[close_col]
 
                 if shift:
-                    # Shift the close prices to create the future target
-                    new_features[future_return_col] = close.pct_change(periods=21).shift(-21)
-                # else:
-                #     # Although redundant for application prediction use, required to match columns for RFR model
-                #     new_features[future_return_col] = close.pct_change(periods=21)
+                    # Shift the returns to create the future target
+                    new_features[future_return_col] = close.pct_change(periods=126).shift(-126)
 
                 # Moving Averages
                 new_features[f'{ticker}_MA_{short_window}'] = close.rolling(window=short_window).mean()
@@ -49,15 +46,19 @@ class StockDataHandler:
 
                 # Bollinger Bands
                 new_features[f'{ticker}_Bollinger_Upper'] = new_features[f'{ticker}_MA_{short_window}'] + (
-                            2 * new_features[f'{ticker}_Volatility_{short_window}'])
+                        2 * new_features[f'{ticker}_Volatility_{short_window}'])
                 new_features[f'{ticker}_Bollinger_Lower'] = new_features[f'{ticker}_MA_{short_window}'] - (
-                            2 * new_features[f'{ticker}_Volatility_{short_window}'])
+                        2 * new_features[f'{ticker}_Volatility_{short_window}'])
 
         # Concatenate the new features DataFrame with the original data
         self.data = pd.concat([self.data, new_features], axis=1)
 
         # Scale the features
-        feature_cols = [col for col in self.data.columns if col not in ['Date'] + list(self.get_tickers())]
+        feature_cols = [col for col in self.data.columns
+                        if col not in ['Date'] + list(self.get_tickers()) +
+                        [f'{ticker}_Future_Return' for ticker in self.get_tickers()
+                         if f'{ticker}_Future_Return' in self.data.columns]
+                        ]
         self.data[feature_cols] = self.scaler.fit_transform(self.data[feature_cols])
 
         # After adding features, clean again to handle NAs produced by rolling calculations
