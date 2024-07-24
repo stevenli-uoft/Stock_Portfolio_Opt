@@ -1,48 +1,39 @@
 import numpy as np
+import pandas as pd
 from scipy.optimize import minimize
 
 
 class PortfolioOptimizer:
-    def __init__(self, returns_df, max_volatility, risk_free_rate=0.02):
+    def __init__(self, returns_df, target_volatility, risk_free_rate=0.02):
         self.returns = returns_df
-        self.max_volatility = max_volatility
-        self.risk_free_rate = risk_free_rate  # Assuming this is an annual rate
-        self.n_assets = len(returns_df.columns)
+        self.target_volatility = target_volatility
+        self.risk_free_rate = risk_free_rate
+        self.num_assets = len(returns_df.columns)
+        self.asset_names = returns_df.columns
 
-        # Assuming returns_df contains 6-month return predictions
-        self.mean_returns = self.returns.mean()
-        self.cov_matrix = self.returns.cov()
+    def _calculate_portfolio_stats(self, weights):
+        portfolio_return = np.sum(self.returns.mean() * weights)  # 3-month return
+        portfolio_volatility = np.sqrt(
+            np.dot(weights.T, np.dot(self.returns.cov() * 52, weights)))  # Annualized volatility
+        sharpe_ratio = (portfolio_return - self.risk_free_rate) / portfolio_volatility
+        return portfolio_return, portfolio_volatility, sharpe_ratio
 
-    def _portfolio_return(self, weights):
-        return np.sum(self.mean_returns * weights)  # Already 6-month return
+    def _objective_function(self, weights):
+        return -self._calculate_portfolio_stats(weights)[2]  # Negative Sharpe ratio
 
-    def _portfolio_volatility(self, weights):
-        return np.sqrt(np.dot(weights.T, np.dot(self.cov_matrix, weights)))  # 6-month volatility
-
-    def _sharpe_ratio(self, weights):
-        # Adjust risk-free rate to 6-month period
-        rf_6month = (1 + self.risk_free_rate) ** 0.5 - 1
-        return (self._portfolio_return(weights) - rf_6month) / self._portfolio_volatility(weights)
-
-    def _negative_sharpe_ratio(self, weights):
-        return -self._sharpe_ratio(weights)
-
-    def _constraint_sum(self, weights):
-        return np.sum(weights) - 1
-
-    def _constraint_volatility(self, weights):
-        return self.max_volatility - self._portfolio_volatility(weights)
+    def _volatility_constraint(self, weights):
+        return self.target_volatility - self._calculate_portfolio_stats(weights)[1]
 
     def get_optimal_weights(self):
         constraints = (
-            {'type': 'eq', 'fun': self._constraint_sum},
-            {'type': 'ineq', 'fun': self._constraint_volatility}
+            {'type': 'eq', 'fun': lambda x: np.sum(x) - 1},  # Weights sum to 1
+            {'type': 'eq', 'fun': self._volatility_constraint}  # Target volatility constraint
         )
-        bounds = tuple((0, 1) for _ in range(self.n_assets))
-        initial_weights = np.array([1 / self.n_assets] * self.n_assets)
+        bounds = tuple((0, 1) for _ in range(self.num_assets))
+        initial_weights = np.array([1.0 / self.num_assets] * self.num_assets)
 
         result = minimize(
-            self._negative_sharpe_ratio,
+            self._objective_function,
             initial_weights,
             method='SLSQP',
             bounds=bounds,
@@ -50,18 +41,12 @@ class PortfolioOptimizer:
         )
 
         optimal_weights = result.x
-        portfolio_return = self._portfolio_return(optimal_weights)
-        portfolio_volatility = self._portfolio_volatility(optimal_weights)
-        sharpe_ratio = self._sharpe_ratio(optimal_weights)
+        optimal_return, optimal_volatility, optimal_sharpe = self._calculate_portfolio_stats(optimal_weights)
 
-        # Annualize the 6-month return and volatility for reporting
-        annualized_return = (1 + portfolio_return) ** 2 - 1
-        annualized_volatility = portfolio_volatility * np.sqrt(2)
-
-        print(f"MVO at {self.max_volatility} volatility preference")
+        print(f"Optimizing portfolio for {self.target_volatility} volatility:")
         return {
-            'Weights': dict(zip(self.returns.columns, optimal_weights)),
-            'Return': annualized_return,
-            'Volatility': annualized_volatility,
-            'Sharpe Ratio': sharpe_ratio
+            'Weights': dict(zip(self.asset_names, optimal_weights)),
+            'Return': optimal_return,
+            'Volatility': optimal_volatility,
+            'Sharpe Ratio': optimal_sharpe
         }

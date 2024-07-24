@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-
 class DataHandler:
     def __init__(self, data):
         self.data = data
@@ -17,38 +16,43 @@ class DataHandler:
         # Drop rows with any remaining missing values in other columns
         self.data.dropna(inplace=True)
 
-    def add_features(self, short_window=20, long_window=50, ema_span=20, shift=True):
-        """Add multiple features and handle NA values created by these operations."""
+    def add_features(self, short_window=4, long_window=12, shift=True):
         new_features = pd.DataFrame(index=self.data.index)
 
         for ticker in self.get_tickers():
-            # Prepare column names
             close_col = f"{ticker}_Adj Close"
             future_return_col = f"{ticker}_Future_Return"
             if close_col in self.data.columns:
                 close = self.data[close_col]
 
                 if shift:
-                    # Shift the returns to create the future target
-                    new_features[future_return_col] = close.pct_change(periods=126).shift(-126)
+                    new_features[future_return_col] = close.pct_change(periods=13).shift(-13)
 
-                # Moving Averages
+                # new_features[f'{ticker}_Weekly_Returns'] = close.pct_change()
                 new_features[f'{ticker}_MA_{short_window}'] = close.rolling(window=short_window).mean()
                 new_features[f'{ticker}_MA_{long_window}'] = close.rolling(window=long_window).mean()
-                new_features[f'{ticker}_EMA_{ema_span}'] = close.ewm(span=ema_span, adjust=False).mean()
 
-                # Volatility
-                daily_returns = close.pct_change()
-                new_features[f'{ticker}_Volatility_{short_window}'] = daily_returns.rolling(window=short_window).std()
+                weekly_returns = close.pct_change()
+                # new_features[f'{ticker}_Volatility_{short_window}'] = weekly_returns.rolling(window=short_window).std()
+                new_features[f'{ticker}_Volatility_{long_window}'] = weekly_returns.rolling(window=long_window).std()
 
-                # Daily Returns
-                new_features[f'{ticker}_Daily_Returns'] = daily_returns
+                # new_features[f'{ticker}_Momentum_{short_window}'] = close.pct_change(periods=short_window)
+                new_features[f'{ticker}_Momentum_{long_window}'] = close.pct_change(periods=long_window)
 
-                # Bollinger Bands
-                new_features[f'{ticker}_Bollinger_Upper'] = new_features[f'{ticker}_MA_{short_window}'] + (
-                        2 * new_features[f'{ticker}_Volatility_{short_window}'])
-                new_features[f'{ticker}_Bollinger_Lower'] = new_features[f'{ticker}_MA_{short_window}'] - (
-                        2 * new_features[f'{ticker}_Volatility_{short_window}'])
+                # Adjusted RSI
+                delta = close.diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=8).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=8).mean()
+                rs = gain / loss
+                new_features[f'{ticker}_RSI_8'] = 100 - (100 / (1 + rs))
+
+                # Adjusted MACD
+                ema_fast = close.ewm(span=short_window, adjust=False).mean()
+                ema_slow = close.ewm(span=long_window, adjust=False).mean()
+                new_features[f'{ticker}_MACD'] = ema_fast - ema_slow
+
+                # new_features[f'{ticker}_ROC_{short_window}'] = close.pct_change(periods=short_window)
+                new_features[f'{ticker}_ROC_{long_window}'] = close.pct_change(periods=long_window)
 
         # Concatenate the new features DataFrame with the original data
         self.data = pd.concat([self.data, new_features], axis=1)
@@ -68,4 +72,4 @@ class DataHandler:
 
     def get_tickers(self):
         """Extract and return the list of tickers based on the DataFrame's columns."""
-        return set(col.split('_')[0] for col in self.data.columns if '_' in col)
+        return set(col.split('_')[0] for col in self.data.columns if '_' in col and not col.startswith('FRED_'))
