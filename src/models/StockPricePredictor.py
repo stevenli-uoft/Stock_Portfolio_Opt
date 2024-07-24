@@ -29,14 +29,14 @@ class RandomForestModel:
         # Target for predicting future returns
         target = self.data[f'{ticker}_Future_Return']
 
-        # Drop target features to prevent data leakage
+        # Drop target features to prevent data leakage, and drop un-important features
         features = self.data[feature_cols].drop(columns=[f'{ticker}_Future_Return'])
 
         # Sort the features alphabetically
         features = features[sorted(features.columns)]
 
         # Split data into train and test sets
-        x_train, x_test, y_train, y_test = train_test_split(features, target, test_size=0.2, shuffle=False)
+        x_train, x_test, y_train, y_test = train_test_split(features, target, test_size=0.15, shuffle=False)
 
         return x_train, x_test, y_train, y_test
 
@@ -44,9 +44,9 @@ class RandomForestModel:
         """Optimize Random Forest model using GridSearchCV."""
         parameter_grid = {
             'n_estimators': [100, 200, 300],
-            'max_depth': [5, 10, 20],
-            'min_samples_split': [5, 10, 20, 30],
-            'min_samples_leaf': [5, 10, 15, 20],
+            'max_depth': [5, 10, 15, 20, None],
+            'min_samples_split': [2, 5, 10, 15],
+            'min_samples_leaf': [1, 2, 4, 8],
             'max_features': ["sqrt", "log2", None]
         }
         rf = RandomForestRegressor(random_state=42)
@@ -65,7 +65,7 @@ class RandomForestModel:
         self.models[ticker] = model
 
         # Cross-validation
-        tscv = TimeSeriesSplit(n_splits=5)
+        tscv = TimeSeriesSplit(n_splits=3)
         cv_mse_scores = -cross_val_score(model, x_train, y_train, cv=tscv, scoring='neg_mean_squared_error')
         cv_mae_scores = -cross_val_score(model, x_train, y_train, cv=tscv, scoring='neg_mean_absolute_error')
         cv_r2_scores = cross_val_score(model, x_train, y_train, cv=tscv, scoring='r2')
@@ -87,7 +87,7 @@ class RandomForestModel:
         logging.info(f'  R2: {test_r2:.4f}')
 
         # Perform feature importance analysis
-        # self.plot_feature_importances(model, x_train, ticker)
+        self.plot_feature_importances(model, x_train, ticker)
 
         return test_predictions, test_mse, test_mae, test_r2
 
