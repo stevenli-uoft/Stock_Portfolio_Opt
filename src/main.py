@@ -6,13 +6,32 @@ import pandas as pd
 
 from src.tests.InvestmentSimulator import PortfolioEvaluator
 
+# Constants
+FILE_PATH = "tests/sample_data"
+FRED_API_KEY = "c9390a380f1c33649e759b91b864853d"
+
+TARGET_VOLATILITY = 0.45  # 0-1 range
+# Risk Levels:
+# Low risk: 0.15 (15% annualized volatility)
+# Medium risk: 0.25 (25% annualized volatility)
+# High risk: 0.35 (35% annualized volatility)
+# Very high risk: 0.45 (45% annualized volatility)
+
+# Date ranges
+# 3-month analysis
+TRAINING_START = "2012-01-01"  # Training end is the same as PRODUCTION_START
+PRODUCTION_START = "2022-10-01"  # Extra 3-months due to lagged features
+PRODUCTION_END = "2023-03-31"
+BASELINE_START = "2023-01-01"  # Baseline end is the same as PRODUCTION_END
+EVAL_START = "2023-04-01"
+EVAL_END = "2023-06-30"
+
 if __name__ == "__main__":
-    file_path = "tests/sample_data"
 
     # Collect and handle stock data
-    fetcher = StockDataFetcher(file_path, "c9390a380f1c33649e759b91b864853d")
-    stock_data = fetcher.fetch_stock_data(start_date="2012-01-01", end_date="2022-12-31")
-    econ_data = fetcher.fetch_economic_data(start_date="2012-01-01", end_date="2022-12-31")
+    fetcher = StockDataFetcher(FILE_PATH, FRED_API_KEY)
+    stock_data = fetcher.fetch_stock_data(start_date=TRAINING_START, end_date=PRODUCTION_START)
+    econ_data = fetcher.fetch_economic_data(start_date=TRAINING_START, end_date=PRODUCTION_START)
 
     # Flatten the MultiIndex columns in stock_data
     stock_data.columns = ['_'.join(col) for col in stock_data.columns]
@@ -30,10 +49,8 @@ if __name__ == "__main__":
         predictor.train_and_evaluate(ticker)
 
     # Collect production data
-    prod_start_date = "2022-10-01"  # Extra 3 month as look-back period for lagged features
-    prod_end_date = "2023-03-31"
-    prod_stock_data = fetcher.fetch_stock_data(start_date=prod_start_date, end_date=prod_end_date)
-    prod_econ_data = fetcher.fetch_economic_data(start_date=prod_start_date, end_date=prod_end_date)
+    prod_stock_data = fetcher.fetch_stock_data(start_date=PRODUCTION_START, end_date=PRODUCTION_END)
+    prod_econ_data = fetcher.fetch_economic_data(start_date=PRODUCTION_START, end_date=PRODUCTION_END)
 
     # Flatten the MultiIndex columns in production_stock_data
     prod_stock_data.columns = ['_'.join(col) for col in prod_stock_data.columns]
@@ -58,70 +75,69 @@ if __name__ == "__main__":
     # Predict future returns using the trained models
     predicted_returns_df = predictor.predict_future(prod_master_data)
 
-    # Portfolio Optimization using predicted returns from Random Forest Model
-    try:
-        optimizer = PortfolioOptimizer(predicted_returns_df, target_volatility=0.35)
-        optimal_weights = optimizer.get_optimal_weights()
-        print("Predicted Optimal Portfolio Weights:")
-        for ticker, weight in optimal_weights['Weights'].items():
-            print(f"  {ticker}: {weight:.4f}")
-        print("Optimal Portfolio Return:", optimal_weights['Return'])
-        print("Optimal Portfolio Volatility:", optimal_weights['Volatility'])
-        print("Optimal Portfolio Sharpe Ratio:", optimal_weights['Sharpe Ratio'])
-    except Exception as e:
-        print(f"An error occurred during portfolio optimization: {e}")
+    risk_pref_test = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    for vol in risk_pref_test:
+        print("=====================================================================")
+        print(f"Running analysis at {vol} target volatility, from {BASELINE_START} to {PRODUCTION_END}")
+        print("=====================================================================")
+        # Portfolio Optimization using predicted returns from Random Forest Model
+        try:
+            optimizer = PortfolioOptimizer(predicted_returns_df, target_volatility=vol)
+            optimal_weights = optimizer.get_optimal_weights()
+            print("Predicted Optimal Portfolio Weights:")
+            for ticker, weight in optimal_weights['Weights'].items():
+                print(f"  {ticker}: {weight:.4f}")
+            print("Optimal Portfolio Return:", optimal_weights['Return'])
+            print("Optimal Portfolio Volatility:", optimal_weights['Volatility'])
+            print("Optimal Portfolio Sharpe Ratio:", optimal_weights['Sharpe Ratio'])
+        except Exception as e:
+            print(f"An error occurred during portfolio optimization: {e}")
 
-    # Baseline MVO Model using historical returns
-    baseline_start_date = "2023-01-01"
-    baseline_end_date = "2023-03-31"
-    historical_stock_data = fetcher.fetch_stock_data(start_date=baseline_start_date, end_date=baseline_end_date)
+        # Baseline MVO Model using historical returns
+        historical_stock_data = fetcher.fetch_stock_data(start_date=BASELINE_START, end_date=PRODUCTION_END)
 
-    # Flatten the MultiIndex columns in historical_stock_data
-    historical_stock_data.columns = ['_'.join(col) for col in historical_stock_data.columns]
-    historical_prices_df = historical_stock_data[[col for col in historical_stock_data.columns
-                                                  if col.endswith('_Adj Close')]]
-    historical_prices_df.columns = [col.split('_')[0] for col in historical_prices_df.columns]
+        # Flatten the MultiIndex columns in historical_stock_data
+        historical_stock_data.columns = ['_'.join(col) for col in historical_stock_data.columns]
+        historical_prices_df = historical_stock_data[[col for col in historical_stock_data.columns
+                                                      if col.endswith('_Adj Close')]]
+        historical_prices_df.columns = [col.split('_')[0] for col in historical_prices_df.columns]
 
-    # Calculate historical returns
-    historical_returns_df = historical_prices_df.pct_change(periods=1).dropna()
+        # Calculate historical returns
+        historical_returns_df = historical_prices_df.pct_change(periods=1).dropna()
 
-    # Portfolio Optimization using averaged historical returns
-    try:
-        baseline_optimizer = PortfolioOptimizer(historical_returns_df, target_volatility=0.35)
-        baseline_optimal_weights = baseline_optimizer.get_optimal_weights()
-        print("Baseline Optimal Portfolio Weights:")
-        for ticker, weight in baseline_optimal_weights['Weights'].items():
-            print(f"  {ticker}: {weight:.4f}")
-        print("Baseline Optimal Portfolio Return:", baseline_optimal_weights['Return'])
-        print("Baseline Optimal Portfolio Volatility:", baseline_optimal_weights['Volatility'])
-        print("Baseline Optimal Portfolio Sharpe Ratio:", baseline_optimal_weights['Sharpe Ratio'])
-    except Exception as e:
-        print(f"An error occurred during baseline portfolio optimization: {e}")
+        # Portfolio Optimization using averaged historical returns
+        try:
+            baseline_optimizer = PortfolioOptimizer(historical_returns_df, target_volatility=vol)
+            baseline_optimal_weights = baseline_optimizer.get_optimal_weights()
+            print("Baseline Optimal Portfolio Weights:")
+            for ticker, weight in baseline_optimal_weights['Weights'].items():
+                print(f"  {ticker}: {weight:.4f}")
+            print("Baseline Optimal Portfolio Return:", baseline_optimal_weights['Return'])
+            print("Baseline Optimal Portfolio Volatility:", baseline_optimal_weights['Volatility'])
+            print("Baseline Optimal Portfolio Sharpe Ratio:", baseline_optimal_weights['Sharpe Ratio'])
+        except Exception as e:
+            print(f"An error occurred during baseline portfolio optimization: {e}")
 
-    try:
-        # Set evaluation period (adjust as needed)
-        eval_start_date = "2023-04-01"
-        eval_end_date = "2023-06-30"
+        try:
+            # Evaluate ML-enhanced portfolio
+            ml_evaluator = PortfolioEvaluator(optimal_weights['Weights'])
+            ml_return = ml_evaluator.evaluate_portfolio(EVAL_START, EVAL_END)
 
-        # Evaluate ML-enhanced portfolio
-        ml_evaluator = PortfolioEvaluator(optimal_weights['Weights'])
-        ml_return = ml_evaluator.evaluate_portfolio(eval_start_date, eval_end_date)
+            # Evaluate baseline portfolio
+            baseline_evaluator = PortfolioEvaluator(baseline_optimal_weights['Weights'])
+            baseline_return = baseline_evaluator.evaluate_portfolio(EVAL_START, EVAL_END)
 
-        # Evaluate baseline portfolio
-        baseline_evaluator = PortfolioEvaluator(baseline_optimal_weights['Weights'])
-        baseline_return = baseline_evaluator.evaluate_portfolio(eval_start_date, eval_end_date)
+            # Compare results
+            if ml_return is not None and baseline_return is not None:
+                print("\nPortfolio Performance Comparison:")
+                print(f"Evaluation Period: {EVAL_START} to {EVAL_END}")
+                print(f"RFR Portfolio Return: {optimal_weights['Return']:.4f} ({optimal_weights['Return'] * 100:.2f}%)")
+                print(f"RFR Portfolio Actual Return: {ml_return:.4f} ({ml_return * 100:.2f}%)")
+                print(f"Baseline Portfolio Return: {baseline_optimal_weights['Return']:.4f} ({baseline_optimal_weights['Return'] * 100:.2f}%)")
+                print(f"Baseline Portfolio Actual Return: {baseline_return:.4f} ({baseline_return * 100:.2f}%)")
 
-        # Compare results
-        if ml_return is not None and baseline_return is not None:
-            print("\nPortfolio Performance Comparison:")
-            print(f"Evaluation Period: {eval_start_date} to {eval_end_date}")
-            print(f"RFR Portfolio Return: {optimal_weights['Return']:.4f} ({optimal_weights['Return'] * 100:.2f}%)")
-            print(f"RFR Portfolio Actual Return: {ml_return:.4f} ({ml_return * 100:.2f}%)")
-            print(f"Baseline Portfolio Return: {baseline_optimal_weights['Return']:.4f} ({baseline_optimal_weights['Return'] * 100:.2f}%)")
-            print(f"Baseline Portfolio Actual Return: {baseline_return:.4f} ({baseline_return * 100:.2f}%)")
-
-            # Calculate relative performance
-            relative_performance = ((1 + ml_return) / (1 + baseline_return) - 1) * 100
-            print(f"Relative Performance: ML-enhanced outperformed baseline by {relative_performance:.2f}%")
-    except ValueError:
-        print("Optimal weights has not been determined.")
+                # Calculate relative performance
+                relative_performance = ((1 + ml_return) / (1 + baseline_return) - 1) * 100
+                print(f"Relative Performance: ML-enhanced outperformed baseline by {relative_performance:.2f}%")
+        except ValueError:
+            print("Optimal weights has not been determined.")
