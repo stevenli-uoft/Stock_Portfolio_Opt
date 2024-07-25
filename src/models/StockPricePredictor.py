@@ -87,7 +87,7 @@ class RandomForestModel:
         logging.info(f'  R2: {test_r2:.4f}')
 
         # Perform feature importance analysis
-        self.plot_feature_importances(model, x_train, ticker)
+        # self.plot_feature_importances(model, x_train, ticker)
 
         return test_predictions, test_mse, test_mae, test_r2
 
