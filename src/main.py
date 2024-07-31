@@ -19,19 +19,20 @@ TARGET_VOLATILITY = 0.45  # 0-1 range
 
 # Date ranges
 # 3-month analysis
-TRAINING_START = "2012-01-01"  # Training end is the same as PRODUCTION_START
-PRODUCTION_START = "2022-10-01"  # Extra 3-months due to lagged features
-PRODUCTION_END = "2023-03-31"
-BASELINE_START = "2023-01-01"  # Baseline end is the same as PRODUCTION_END
-EVAL_START = "2023-04-01"
-EVAL_END = "2023-06-30"
+TRAINING_START = "2012-01-01"
+TRAINING_END = "2022-12-31"
+PRODUCTION_START = "2023-07-01"  # Extra 3-months due to lagged features
+BASELINE_START = "2023-10-01"  # Baseline end is the same as PRODUCTION_END
+PRODUCTION_END = "2023-12-31"
+EVAL_START = "2024-01-01"
+EVAL_END = "2024-03-31"
 
 if __name__ == "__main__":
 
     # Collect and handle stock data
     fetcher = StockDataFetcher(FILE_PATH, FRED_API_KEY)
-    stock_data = fetcher.fetch_stock_data(start_date=TRAINING_START, end_date=PRODUCTION_START)
-    econ_data = fetcher.fetch_economic_data(start_date=TRAINING_START, end_date=PRODUCTION_START)
+    stock_data = fetcher.fetch_stock_data(start_date=TRAINING_START, end_date=TRAINING_END)
+    econ_data = fetcher.fetch_economic_data(start_date=TRAINING_START, end_date=TRAINING_END)
 
     # Flatten the MultiIndex columns in stock_data
     stock_data.columns = ['_'.join(col) for col in stock_data.columns]
@@ -77,7 +78,7 @@ if __name__ == "__main__":
 
     risk_pref_test = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     for vol in risk_pref_test:
-        print("=====================================================================")
+        print("\n=====================================================================")
         print(f"Running analysis at {vol} target volatility, from {BASELINE_START} to {PRODUCTION_END}")
         print("=====================================================================")
         # Portfolio Optimization using predicted returns from Random Forest Model
