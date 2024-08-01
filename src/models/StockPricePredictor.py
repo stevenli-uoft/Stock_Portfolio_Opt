@@ -106,7 +106,7 @@ class RandomForestModel:
         predicted_returns = {}
         tickers = self.get_tickers()
         for ticker in tickers:
-            logging.info(f'Predicting future returns for ticker: {ticker}')
+            # logging.info(f'Predicting future returns for ticker: {ticker}')
 
             # Extract features from application data
             ticker_cols = [col for col in prod_data.columns if col.startswith(ticker)]
