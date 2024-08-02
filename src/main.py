@@ -1,27 +1,21 @@
 from src.data.DataCollection import StockDataFetcher
 from src.data.DataHandling import DataHandler
 from src.models.StockPricePredictor import RandomForestModel
-from src.optimization.MVOModel import PortfolioOptimizer
+from src.models.MVOModel import PortfolioOptimizer
 import pandas as pd
 
 from src.tests.InvestmentSimulator import PortfolioEvaluator
 
 # Constants
-FILE_PATH = "tests/sample_data"
+PORTFOLIO_FILE_PATH = "tests/diverse_portfolio_sample"
 FRED_API_KEY = "c9390a380f1c33649e759b91b864853d"
 
-# Risk Levels:
-# Low risk: 0.15 (15% annualized volatility)
-# Medium risk: 0.25 (25% annualized volatility)
-# High risk: 0.35 (35% annualized volatility)
-# Very high risk: 0.45 (45% annualized volatility)
-
-# Training date range
+# Training data date range
 TRAINING_START = "2007-01-01"
 TRAINING_END = "2021-12-31"
 
 # List of date ranges for analysis periods
-date_ranges = [
+testing_dates = [
     {
         "PRODUCTION_START": "2022-01-01",
         "BASELINE_START": "2022-04-01",
@@ -82,7 +76,7 @@ date_ranges = [
 
 if __name__ == "__main__":
     # Collect and handle stock data for training
-    fetcher = StockDataFetcher(FILE_PATH, FRED_API_KEY)
+    fetcher = StockDataFetcher(PORTFOLIO_FILE_PATH, FRED_API_KEY)
     stock_data = fetcher.fetch_stock_data(start_date=TRAINING_START, end_date=TRAINING_END)
     econ_data = fetcher.fetch_economic_data(start_date=TRAINING_START, end_date=TRAINING_END)
 
@@ -117,11 +111,11 @@ if __name__ == "__main__":
     for ticker in tickers:
         predictor.train_and_evaluate(ticker)
 
-    # Loop through each date range
-    for date_range in date_ranges:
+    # Loop through each testing date range
+    for date_range in testing_dates:
         print("\n")
         print("\n=====================================================================")
-        print(f"START OF ANALYSIS:")
+        print(f"START OF ANALYSIS")
         print(f"    PRODUCTION PERIOD: {date_range['PRODUCTION_START']} to {date_range['PRODUCTION_END']}")
         print(f"    Evaluation period: {date_range['EVAL_START']} to {date_range['EVAL_END']}")
         print("=====================================================================")
@@ -155,11 +149,16 @@ if __name__ == "__main__":
         # Predict future returns using the trained models
         predicted_returns_df = predictor.predict_future(prod_master_data)
 
+        # Risk Levels:
+        # Low risk: 0.15 (15% annualized volatility)
+        # Medium risk: 0.25 (25% annualized volatility)
+        # High risk: 0.35 (35% annualized volatility)
+        # Very high risk: 0.45 (45% annualized volatility)
         risk_pref_test = [0.05, 0.15, 0.25, 0.35, 0.45]
         for vol in risk_pref_test:
             print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            print(f"Running analysis at {vol} target volatility")
-            print(f"Production period: {date_range['PRODUCTION_START']} to {date_range['PRODUCTION_END']}")
+            print(f"Running MVO model analysis at {vol} target volatility")
+            print(f"MVO input period: {date_range['BASELINE_START']} to {date_range['PRODUCTION_END']}")
             print(f"Evaluation period: {date_range['EVAL_START']} to {date_range['EVAL_END']}")
 
             # Portfolio Optimization using predicted returns from Random Forest Model
@@ -219,10 +218,6 @@ if __name__ == "__main__":
                     print(f"RFR Portfolio Actual Return: {ml_return:.4f} ({ml_return * 100:.2f}%)")
                     print(f"Baseline Portfolio Return: {baseline_optimal_weights['Return']:.4f} ({baseline_optimal_weights['Return'] * 100:.2f}%)")
                     print(f"Baseline Portfolio Actual Return: {baseline_return:.4f} ({baseline_return * 100:.2f}%)")
-
-                    # Calculate relative performance
-                    relative_performance = ((1 + ml_return) / (1 + baseline_return) - 1) * 100
-                    print(f"Relative Performance: ML-enhanced outperformed baseline by {relative_performance:.2f}%")
             except ValueError:
                 print("Optimal weights has not been determined.")
 
