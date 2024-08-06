@@ -1,10 +1,12 @@
 from src.data.DataCollection import StockDataFetcher
 from src.data.DataHandling import DataHandler
-from src.models.StockPricePredictor import RandomForestModel
+from src.models.RFRModel import RandomForestModel
 from src.models.MVOModel import PortfolioOptimizer
+from src.tests.InvestmentSimulator import PortfolioEvaluator
+
 import pandas as pd
 
-from src.tests.InvestmentSimulator import PortfolioEvaluator
+from src.visualization.visualizer import PortfolioPerformanceVisualizer
 
 # Constants
 PORTFOLIO_FILE_PATH = "tests/diverse_portfolio_sample"
@@ -110,6 +112,8 @@ if __name__ == "__main__":
     tickers = predictor.get_tickers()
     for ticker in tickers:
         predictor.train_and_evaluate(ticker)
+
+    results = []
 
     # Loop through each testing date range
     for date_range in testing_dates:
@@ -218,9 +222,27 @@ if __name__ == "__main__":
                     print(f"RFR Portfolio Actual Return: {ml_return:.4f} ({ml_return * 100:.2f}%)")
                     print(f"Baseline Portfolio Return: {baseline_optimal_weights['Return']:.4f} ({baseline_optimal_weights['Return'] * 100:.2f}%)")
                     print(f"Baseline Portfolio Actual Return: {baseline_return:.4f} ({baseline_return * 100:.2f}%)")
+
+                results.append({
+                    'Risk Level': vol,
+                    'ML Predicted': optimal_weights['Return'],
+                    'ML Actual': ml_return,
+                    'ML Sharpe': optimal_weights['Sharpe Ratio'],
+                    'Baseline Predicted': baseline_optimal_weights['Return'],
+                    'Baseline Actual': baseline_return,
+                    'Baseline Sharpe': baseline_optimal_weights['Sharpe Ratio']
+                })
+
             except ValueError:
                 print("Optimal weights has not been determined.")
 
         print("\n=====================================================================")
         print(f"END ANALYSIS OF PRODUCTION PERIOD: {date_range['PRODUCTION_START']} to {date_range['PRODUCTION_END']}")
         print("=====================================================================")
+
+    # Create DataFrame from results
+    results_df = pd.DataFrame(results)
+
+    # Create visualizer and plot results
+    visualizer = PortfolioPerformanceVisualizer(results_df)
+    visualizer.plot_performance()
