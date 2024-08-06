@@ -6,7 +6,9 @@ This project explores an innovative approach to portfolio optimization by enhanc
 ### Mean-Variance Optimization (MVO) Concept
 Mean-Variance Optimization, introduced by Harry Markowitz in 1952, is a foundational concept in modern portfolio theory. It aims to construct an optimal portfolio by balancing the trade-off between expected returns (mean) and risk (variance). The traditional MVO model uses historical data to estimate expected returns and covariances between assets, then determines the asset allocation that maximizes returns for a given level of risk or minimizes risk for a given level of return.
 
-My project enhances this classical approach by using machine learning to predict future returns instead of relying solely on historical averages. This modification aims to capture more complex patterns in financial data and potentially improve the model's adaptability to changing market conditions.
+My project enhances this classical approach by using machine learning to generate quarterly (3-month) forward-looking return estimates instead of relying solely on historical averages. This modification aims to capture more complex patterns in financial data and potentially improve the model's adaptability to changing market conditions.
+
+For example, a typical MVO model will use the mean of Q1 2024 stock returns as expected returns for Q2 2024 for its portfolio optimization. Introducing an ML model will predict the expected returns of Q2 2024, instead of using the mean of the previous quarter. This forward-looking approach could provide investors and financial institutions with a more dynamic and responsive tool for portfolio management, potentially leading to improved investment outcomes in various market conditions.
 
 ## Key Features
 - Extensive data collection and preprocessing from Yahoo Finance (stock data) and FRED (economic data)
@@ -33,23 +35,25 @@ My project enhances this classical approach by using machine learning to predict
 - **Time Series Validation**: Used TimeSeriesSplit for model validation, which helped ensure the model was tested realistically on data it hadn't seen before, similar to how it would be used in real-world scenarios.
 
 ## Results and Findings
-The ML-enhanced MVO model demonstrated several advantages over the traditional MVO approach:
-1. **Higher Average Sharpe Ratios**: The ML model consistently achieved higher Sharpe ratios across different volatility levels, indicating better risk-adjusted returns. This is particularly evident at lower risk levels (0.05-0.25 volatility).
-2. **Better Predictive Accuracy**: On average, the ML model's predicted returns were closer to actual returns compared to the baseline model, especially at lower volatility levels.
-3. **Adaptability to Market Conditions**: The ML model showed more consistent performance across different quarters, suggesting better adaptability to changing market environments.
-4. **Improved Performance at Lower Risk Levels**: The ML model outperformed the baseline particularly well at lower volatility levels (0.05-0.25), making it potentially more suitable for conservative investment strategies.
-5. **Resilience in Volatile Periods**: During quarters with negative returns (e.g., 2022 Q3), the ML model generally predicted and achieved less negative returns than the baseline model.
+The ML-enhanced MVO model demonstrated several advantages over the traditional MVO approach, as evidenced by the graph:
 
-However, it's important to note:
-- Both models sometimes overestimated returns, especially in down markets.
-- The baseline model occasionally outperformed in terms of actual returns, particularly at higher risk levels.
-- The ML model's performance advantage was less pronounced at very high risk levels (0.45 volatility).
+- **Higher Average Sharpe Ratios**: The blue line representing the ML model's Sharpe ratio is consistently above the green line of the baseline model across all volatility levels. This indicates that the ML model achieved better risk-adjusted returns, particularly at lower risk levels (0.05-0.25 volatility).
+- **Better Predictive Accuracy**: The dark blue bars (ML Predicted Returns) are generally closer to the light blue bars (ML Actual Returns) compared to the dark green (Baseline Predicted Returns) and light green (Baseline Actual Returns) bars. This suggests that the ML model's predictions were more accurate, especially at lower volatility levels.
+- **Adaptability to Market Conditions**: The consistency of the ML model's performance across different volatility levels, as shown by the relatively stable height of the blue bars, suggests better adaptability to varying market conditions.
+- **Improved Performance at Lower Risk Levels**: The graph clearly shows that the ML model outperforms the baseline particularly well at lower volatility levels (0.05-0.25). The difference in bar heights between ML and baseline is most pronounced in this range, indicating the ML model's suitability for conservative investment strategies.
+- **Higher Actual Returns**: The light blue bars (ML Actual) are generally higher than the light green bars (Baseline Actual), especially at lower volatility levels. This indicates that the ML model's portfolios achieved higher actual returns in most cases.
+
+However, it's important to note some limitations:
+
+- **Overestimation of Returns**: Both models show a tendency to overestimate returns, as evidenced by the predicted bars (dark blue and dark green) often being higher than the actual return bars (light blue and light green).
+- **Diminishing Advantage at Higher Risk Levels**: The performance gap between ML and baseline models narrows at higher volatility levels (0.35-0.45), with the baseline occasionally outperforming in terms of actual returns.
+- **Sharpe Ratio Decline**: Both models show declining Sharpe ratios as volatility increases, which is expected, but the ML model maintains a higher Sharpe ratio throughout.
+
+The graph visualizes results averaged across 8 quarters (Q3 2022 to Q2 2024), with 5 levels of risk tested for each quarter. This comprehensive testing demonstrates the ML model's consistent outperformance, particularly in lower-risk scenarios.
 
 ![test_result_plot](https://github.com/user-attachments/assets/aa51b7a1-c8b1-4c74-9316-ce83163f2ef6)
 
-These results suggest that the ML-enhanced MVO model offers improvements in portfolio optimization, particularly for lower-risk strategies. However, further refinement could potentially enhance its performance across all risk levels.
-  
-The output from main.py spanned 8 quarters, with 4 levels of risk for each quarter. This was the final and main test of my project.
+These results suggest that the ML-enhanced MVO model offers significant improvements in portfolio optimization, especially for lower-risk strategies. The model's ability to more accurately predict returns and achieve higher Sharpe ratios could be particularly valuable for risk-averse investors or in volatile market conditions. However, the diminishing advantage at higher risk levels indicates that further refinement could potentially enhance the model's performance across all risk levels.
 
 ## Future Improvements
 - **Explore Advanced Techniques**: Look into using more advanced methods like XGBoost, which might improve on the current Random Forest model's performance.
